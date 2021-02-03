@@ -1,0 +1,234 @@
+---
+title: "A1 - OVB simulation"
+author: "Andrew Dickinson"
+date: "Winter 2020"
+#date: "<br>`r format(Sys.time(), '%d %B %Y')`"
+header-includes:
+  - \usepackage{mathtools}
+  - \DeclarePairedDelimiter\floor{\lfloor}{\rfloor}
+  - \usepackage{amssymb}
+output: 
+  html_document:
+    toc: false
+    toc_depth: 3  
+    number_sections: false
+    theme: flatly
+    highlight: tango  
+    toc_float:
+      collapsed: true
+      smooth_scroll: true
+---
+
+```{r Setup, include = F}
+options(htmltools.dir.version = FALSE)
+library(pacman)
+p_load(broom, latex2exp, leaflet, ggplot2, ggthemes, viridis, dplyr, magrittr, knitr, parallel, rddtools, readxl, emoGG, dslabs, gapminder, extrafont, Ecdat, wooldridge, tidyverse, janitor, kableExtra, gridExtra, estimatr, furrr, here, broom)
+# Define pink color
+red_pink <- "#e64173"
+turquoise <- "#20B2AA"
+orange <- "#FFA500"
+red <- "#fb6107"
+blue <- "#3b3b9a"
+green <- "#8bb174"
+grey_light <- "grey70"
+grey_mid <- "grey50"
+grey_dark <- "grey20"
+purple <- "#6A5ACD"
+slate <- "#314f4f"
+# Dark slate grey: #314f4f
+# Notes directory
+dir_slides <- "~/Dropbox/Courses/"
+# Knitr options
+opts_chunk$set(
+  comment = "#>",
+  fig.align = "center",
+  fig.height = 4,
+  fig.width = 6,
+  # dpi = 300,
+  # cache = T,
+  warning = F,
+  message = F
+)
+# A blank theme for ggplot
+theme_empty <- theme_bw() + theme(
+  line = element_blank(),
+  rect = element_blank(),
+  strip.text = element_blank(),
+  axis.text = element_blank(),
+  plot.title = element_blank(),
+  axis.title = element_blank(),
+  plot.margin = structure(c(0, 0, -1, -1), unit = "lines", valid.unit = 3L, class = "unit"),
+  legend.position = "none"
+)
+theme_simple <- theme_bw() + theme(
+  line = element_blank(),
+  panel.grid = element_blank(),
+  rect = element_blank(),
+  axis.text.x = element_text(size = 10),
+  axis.text.y = element_text(size = 10),
+  axis.ticks = element_blank(),
+  plot.title = element_blank(),
+  axis.title.x = element_text(angle = 0, vjust = 0.5),
+  axis.title.y = element_text(angle = 90, vjust = 0.5),
+  legend.position = "none",
+  axis.line = element_line(color="black", size = .5)
+)
+```
+
+> Due date: 12 January 2020
+>
+> Please have your simulation ready to share in class on Tuesday.
+
+__When people make the claim that _correlation does not imply causation_, they usually mean that the existence of some correlation between $y$ and $x_1$ does not imply that variation in $x_1$ _causes_ variation in $y$.__
+
+- That is, they tend to be acknowledging that you can have correlation without causation
+
+**Assignment: Propose and simulate a data-generating process in which (**i**) causation runs from $x_1$ to $y$ but at the same time (**ii**) the correlation of $y$ and $x_1$ is zero. Write it in an Rmd file and make the argument visually.**
+
+- *Yes, at the end of this you should have simulated something (good) and demonstrated that the lack of correlation does not imply lack of causation (which is like a party trick).*
+
+  
+# {.tabset .tabset-fade .tabset-pills}
+
+## Sim I
+
+I want to propose and simulate a data generating process in which:
+  - causation from $x_1$ to $y$
+  - the correlation of $y$ and $x_1$ is zero
+
+The first simulated DGP is a very very simple omitted variable example. I define my DGP as the following:
+
+\begin{align*}
+x_1 &= 1 + exp(0.01 * w) + e \\
+x_2 &= 1 + 2.5x_1 + f \\
+y &= 5x_1 - 2x_2 + u \\
+\end{align*}
+where
+\begin{align*}
+w &\sim N(5, 1), \\
+u &\sim U(-5, 5), \\
+e,f &\sim N(0,1) \\
+\end{align*}
+
+I simulate the DGP with the following function:
+
+```{r sim1, cache=T}
+# Set up function for a single iteration
+sim1_iter = function(n = 1000) {
+  # Generate data
+  dgp_it = tibble(
+    u = runif(n, -5, 5),
+    e = rnorm(n, mean = 0, sd = 1),
+    f = rnorm(n, mean = 0, sd = 1),
+    w = (rnorm(n, mean = 5, sd = 1))^2,
+    x1 = 1 + exp(0.01*w) + e,
+    x2 = 1 + 2.5*x1 + f,
+    y = 5*x1 - 2*x2 + u
+  )
+  # Collect estimates from regressions with and without OV
+  bind_rows(
+    lm(y ~ x1, data = dgp_it) %>% broom::tidy() %>% filter(term == "x1"),
+    lm(y ~ x1 + x2, data = dgp_it) %>% broom::tidy() %>% filter(term == "x1"),
+  ) %>% mutate(model = c("x2 is unobserved", "x2 is observed"))
+}
+```
+
+Then simulating the function `sim1_iter()` 500 times with the following process:
+
+```{r sim1_para, cache = T}
+# Set up the parallelization
+plan(multiprocess, workers = 8, .progress = T)
+invisible(future_options(seed = 1234))
+# Run the simulation
+sim1_df = future_map_dfr(rep(15, 500), sim1_iter)
+```
+
+And I plot the resulting dataframe with `ggplot2`
+
+```{r, cache = T}
+# Plot simulation density plots
+ggplot(data = sim1_df, aes(x = estimate, fill = model)) +
+  geom_density(color = NA, alpha = 0.75) +
+  geom_hline(yintercept = 0) +
+  geom_vline(xintercept = 5, linetype = "dashed") +
+  geom_vline(xintercept = 0, colour = "red") +
+  labs(x = "Estimate", y = "Density") +
+  scale_fill_viridis_d("Controls", option = "magma", end = 0.9) +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "bottom")
+```
+
+
+## Sim II - Potential outcome framework
+  
+In my second simulation I write a DGP in a potential outcomes framework with a binary treatment variable $D_i$ and an outcome variable $Y_i$
+
+I define my DGP as follows:
+
+\begin{align*}
+Y_{0i} &= X_i + u_i \\
+Y_{1i} &= Y_{0i} + W_i + v_i \\
+D_i &= \mathbb{I}(X_i + \varepsilon_i < 8) \\
+Y_i &= Y_{0i} + D_i \tau_i \\
+\end{align*}
+
+where
+
+\begin{align*}
+u_i &\sim U(-5, 5) \\
+v_i &\sim U(-3, 3) \\
+\varepsilon_i &\sim U(-1, 1) \\
+X_i &\sim N(10, 3) \\
+W_i &\sim N(5, 1) \\
+
+\end{align*}
+  
+```{r, sim2_iter, cache = T}
+# Set up function for a single iteration
+sim2_iter = function(n = 1000) {
+  # Generate data
+  dgp_it = tibble(
+    u = runif(n, -5, 5),
+    v = runif(n, -3, 3),
+    e = runif(n, -1, 1),
+    x = rnorm(n, mean = 10, sd = 3),
+    w = rnorm(n, mean = 5, sd = 1),
+    y0 = x + u,
+    y1 = y0 + w + v,
+    t = y1 - y0,
+    d = (x + e < 8) %>% as.numeric(),
+    y = y0 + d * t
+  )
+  # Collect estimates from regressions with and without OV
+  bind_rows(
+    lm(y ~ d, data = dgp_it) %>% broom::tidy() %>% filter(term == "d"),
+    lm(y ~ d + x, data = dgp_it) %>% broom::tidy() %>% filter(term == "d"),
+  ) %>% mutate(model = c("x is unobserved", "x is observed"))
+}
+```
+
+
+```{r, sim2 para, echo = F, cache = T}
+# Set up the parallelization
+plan(multiprocess, workers = 8, .progress = T)
+invisible(future_options(seed = 1234))
+# Run the simulation
+sim2_df = future_map_dfr(rep(15, 500), sim2_iter)
+```
+
+
+```{r sim2 plot, cache = T}
+# Plot simulation density plots
+ggplot(data = sim2_df, aes(x = estimate, fill = model)) +
+  geom_density(color = NA, alpha = 0.75) +
+  geom_hline(yintercept = 0) +
+  geom_vline(xintercept = 5, linetype = "dashed") +
+  geom_vline(xintercept = 0, colour = "red") +
+  labs(x = "Estimate", y = "Density") +
+  scale_fill_viridis_d("Controls", option = "magma", end = 0.9) +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "bottom")
+```
+
+
+

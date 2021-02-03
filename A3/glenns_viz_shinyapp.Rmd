@@ -1,0 +1,142 @@
+---
+title: "Micro-metrics"
+author: "Andrew Dickinson"
+date: "<br>`r format(Sys.time(), '%d %B %Y')`"
+header-includes:
+  - \usepackage{mathtools}
+  - \DeclarePairedDelimiter\floor{\lfloor}{\rfloor}
+  - \usepackage{amssymb}
+output: 
+  html_document:
+    toc: false
+    toc_depth: 3  
+    number_sections: false
+    theme: flatly
+    highlight: tango  
+    toc_float:
+      collapsed: true
+      smooth_scroll: true
+runtime: shiny
+---
+
+```{r Setup, include = F}
+options(htmltools.dir.version = FALSE)
+library(pacman)
+p_load(broom, wesanderson, latex2exp, leaflet, ggplot2, ggthemes, viridis, dplyr, magrittr, knitr, parallel, rddtools, readxl, emoGG, dslabs, gapminder, extrafont, Ecdat, wooldridge, tidyverse, janitor, kableExtra, gridExtra, estimatr, furrr, here, broom)# Define pink color
+red_pink <- "#e64173"
+turquoise <- "#20B2AA"
+orange <- "#FFA500"
+red <- "#fb6107"
+blue <- "#3b3b9a"
+green <- "#8bb174"
+grey_light <- "grey70"
+grey_mid <- "grey50"
+grey_dark <- "grey20"
+purple <- "#6A5ACD"
+slate <- "#314f4f"
+# Dark slate grey: #314f4f
+# Notes directory
+# dir_slides <- "~/Dropbox/Courses/"
+# Knitr options
+# opts_chunk$set(
+#   comment = "#>",
+#   fig.align = "center",
+#   fig.height = 4,
+#   fig.width = 6,
+#   # dpi = 300,
+#   # cache = T,
+#   warning = F,
+#   message = F
+# )
+# A blank theme for ggplot
+theme_empty <- theme_bw() + theme(
+  line = element_blank(),
+  rect = element_blank(),
+  strip.text = element_blank(),
+  axis.text = element_blank(),
+  plot.title = element_blank(),
+  axis.title = element_blank(),
+  plot.margin = structure(c(0, 0, -1, -1), unit = "lines", valid.unit = 3L, class = "unit"),
+  legend.position = "none"
+)
+theme_simple <- theme_bw() + theme(
+  line = element_blank(),
+  panel.grid = element_blank(),
+  rect = element_blank(),
+  axis.text.x = element_text(size = 10),
+  axis.text.y = element_text(size = 10),
+  axis.ticks = element_blank(),
+  plot.title = element_blank(),
+  axis.title.x = element_text(angle = 0, vjust = 0.5),
+  axis.title.y = element_text(angle = 90, vjust = 0.5),
+  legend.position = "none",
+  axis.line = element_line(color="black", size = .5)
+)
+```
+
+First, simulate a DGP in which there is some treatment to be evaluated. Do this in a way that allows you to control whether it falls randomly on individuals or systematically with some observable characteristic. 
+
+Second, consider how one might display the existing variation in treatment associated with individual characteristics. A nice visualization---something you could display on your webpage when you're in the job market. 
+
+```{r}
+sim.dgp = function(n = 600) {
+  tibble(
+    i = 1:n,
+    age = sample(c(24:80), n, replace = TRUE),
+      age_bins = cut(age, breaks = c(24, 30, 45, 65, 81), right = FALSE),
+    gender = sample(c('Male', 'Female'), n, replace = TRUE),
+    female = ifelse(gender == 'Female', 1, 0),
+    education = sample(c('High School', 'Some college', 'College', 'Advanced degree'), n, replace = TRUE, prob = c(0.40, 0.25, 0.20, 0.15)),
+    
+    college = ifelse(education == 'College' | education == 'Advanced degree', 1, 0),
+    ## Introduce some age-based selection, different by gender...
+    treated_num = ifelse(rnorm(n, sd = 1) + ifelse(female == 1, -age/45, age/60) < 0, 1, 0),
+    treated = ifelse(treated_num == 1, 'Treated', 'Control'),
+    y = 1 + female + college + treated_num + rnorm(n, sd = 1)
+  )
+}
+```
+
+```{r}
+dgp = sim.dgp() %>% dplyr::select(c('age_bins', 'gender', 'education', 'y', 'treated'))
+varSelectInput('Y_Axis', label = 'Select variable', data = dgp)
+```
+
+```{r}
+checkboxInput("facetgender", "Facet wrap by gender?", FALSE)
+```
+
+
+```{r}
+renderPlot({
+g0 = ggplot(dgp, aes(x = treated, y = !!input$Y_Axis)) +
+  theme_bw() + theme(
+    line = element_blank(),
+    panel.grid = element_blank(),
+    rect = element_blank(),
+    axis.text.x = element_text(size = 14),
+    axis.text.y = element_text(size = 14),
+    axis.ticks = element_blank(),
+    plot.title = element_blank(),
+    axis.title.x = element_text(angle = 0, vjust = 0.5),
+    axis.title.y = element_text(angle = 90, vjust = 0.5),
+    legend.position = "right",
+    legend.text.align = 0,
+    axis.line = element_line(color = 'black', size = 0.5)
+  ) +
+  geom_count(aes(group = !!input$Y_Axis), color = red_pink) +
+  scale_size_area(max_size = 12) +
+  labs(x = " ",
+       caption = paste0('Proportional breakdown of treatment status within selected variable, from simulated sample of....'),
+       size = 'Proportion') +
+  scale_color_manual(values = wes_palette(n = 3, name = 'Moonrise2'))
+
+if (input$facetgender) {
+  g0 + facet_grid(. ~ gender)
+} else {
+  g0
+}
+  
+})
+```
+

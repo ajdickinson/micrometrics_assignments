@@ -1,0 +1,282 @@
+---
+title: "A3 - Vizualization"
+subtitle: "Microeconometrics"
+author: "Andrew Dickinson"
+date: "<br>`r format(Sys.time(), '%d %B %Y')`"
+header-includes:
+  - \usepackage{mathtools}
+  - \DeclarePairedDelimiter\floor{\lfloor}{\rfloor}
+  - \usepackage{amssymb}
+output: 
+  html_document:
+    toc: false
+    toc_depth: 3  
+    number_sections: false
+    theme: flatly
+    highlight: tango  
+    toc_float:
+      collapsed: true
+      smooth_scroll: true
+runtime: shiny
+---
+
+```{r Setup, include = F}
+options(htmltools.dir.version = FALSE)
+library(pacman)
+p_load(broom, ggplot2, ggthemes, viridis, dplyr, magrittr, knitr, emoGG, dslabs, tidyverse, janitor, estimatr, here, broom, Hmisc)
+## 
+dark_blue <- "#000c8b"
+greenish <- "#8bd99a"
+rmd_green <- "#73d7ad"
+rmd_pink <- "#d7739d"
+red <- "#fb6107"
+grey <- "#838383"
+slate <- "#314f4f"
+dark_red <- "#8b0000"
+turquoise <- "#20B2AA"
+green <- "#008000"
+yellow <- "#ffea00"
+##
+red_pink <- "#e64173"
+orange <- "#FFA500"
+blue <- "#3b3b9a"
+grey_light <- "grey70"
+grey_mid <- "grey50"
+grey_dark <- "grey20"
+purple <- "#6A5ACD"
+# Dark slate grey: #314f4f
+# Notes directory
+# dir_slides <- "~/Dropbox/Courses/"
+# Knitr options
+# opts_chunk$set(
+#   comment = "#>",
+#   fig.align = "center",
+#   fig.height = 4,
+#   fig.width = 6,
+#   # dpi = 300,
+#   # cache = T,
+#   warning = F,
+#   message = F
+# )
+# A blank theme for ggplot
+theme_empty <- theme_bw() + theme(
+  line = element_blank(),
+  rect = element_blank(),
+  strip.text = element_blank(),
+  axis.text = element_blank(),
+  plot.title = element_blank(),
+  axis.title = element_blank(),
+  plot.margin = structure(c(0, 0, -1, -1), unit = "lines", valid.unit = 3L, class = "unit"),
+  legend.position = "none"
+)
+theme_simple <- theme_bw() + theme(
+    line = element_blank(),
+    rect = element_blank(),
+    axis.text.x = element_text(size = 14),
+    axis.text.y = element_text(size = 14),
+    plot.title = element_blank(),
+    axis.title.x = element_text(angle = 0, vjust = 0.5),
+    axis.title.y = element_text(angle = 90, vjust = 0.5),
+    legend.position = "right",
+    legend.text.align = 0,
+    axis.line = element_line(color = 'black', size = 0.5),
+    panel.grid.minor = element_line(colour="blue", size=1)
+  )
+```
+__Assignment Description:__
+
+First, simulate a DGP in which there is some treatment to be evaluated. Do this in a way that allows you to control whether it falls randomly on individuals or systematically with some observable characteristic. 
+
+Second, consider how one might display the existing variation in treatment associated with individual characteristics. A nice visualization---something you could display on your webpage when you're in the job market. 
+
+# {.tabset .tabset-fade .tabset-pills}
+
+
+## DGP
+
+The data generating process for the visualization is coded below. Observable characteristics such as age, gender, education, college graduate, race, and income are simulated. Treatment suffers from race based selection compounded by income selection.
+
+```{r}
+sim.dgp = function(n = 800) {
+  d = tibble(
+    i = 1:n,
+    
+    ## Simulating observable characteristics
+    # Age
+    age = sample(c(24:80), n, replace = TRUE),
+      age_bins = cut(age, breaks = c(24, 30, 45, 65, 81), right = FALSE,
+                     labels = c('24 to 29','30 to 44','45 to 64','65 to 80')),
+    
+    # Gender
+    gender = sample(c('Male', 'Female'), n, replace = TRUE),
+    female = ifelse(gender == 'Female', 1, 0),
+    
+    # Education
+    education = sample(c('High School', 'Some college', 'College', 'Advanced degree'),
+                       n, replace = TRUE, prob = c(0.40, 0.25, 0.20, 0.15)),
+    
+    # College
+    college_num = ifelse(education == 'College' | education == 'Advanced degree', 1, 0),
+          college = ifelse(education %in% c('College','Advanced degree'),
+                           'College graduate', 'Not a college graduate'),
+    
+    # Race
+    race = sample(c('White', 'Black'), n, replace = TRUE),
+      white = ifelse(race == 'White', 1, 0),
+    
+    # Income
+    income = ifelse(education == 'Advanced degree', 40000*rgamma(n, 2, 0.65)+10000,
+                    ifelse(education == 'College', 35000*rgamma(n, 2, 0.65)+10000,
+                           ifelse(education == 'Some college', 20000*rgamma(n, 1.4, 0.65)+10000,
+                                  15000 * rgamma(n, 1.4, 0.65) + 10000))),
+      income_bins = cut(income, breaks = c(0, 50000, 150000, 1000000), right = FALSE,
+                        labels = c('Low income', 'Middle income', 'High income')),
+    
+    ## Introduce some race-based selection, that differs by income
+    treated_num = ifelse(rnorm(n, mean = -1, sd = 0.5) + ifelse(white == 1,
+                                                                income/50000,
+                                                                income/400000) > 0, 1, 0),
+    treated = ifelse(treated_num == 1, 'Treated', 'Control'),
+    y = 1 + female + college_num + treated_num + rnorm(n, sd = 1)
+  )
+}
+```
+
+```{r, echo = F}
+dgp = sim.dgp() %>% dplyr::select(c('age_bins', 'gender', 'college', 'income', 'income_bins', 'race', 'y', 'treated'))
+```
+
+
+## Jitter Plot
+
+__Explore the data with the following options using a `jitter` plot__
+
+_Note: A `jitter` plot adds a small amount of random variation to the location of each point. It is a useful way of handling overplotting caused by plotting multiple discrete variables_
+
+```{r, echo = F}
+varSelectInput('Y_Axis', label = 'Select Y axis', data = dgp)
+
+checkboxInput("colorrace", "Color by race?", FALSE)
+checkboxInput("sizeincome", "Size by income?", FALSE)
+checkboxInput("facetcollege02", "Facet wrap by college?", FALSE)
+
+```
+
+
+```{r, echo = F}
+renderPlot(
+  width = 1000,
+  height = 700,
+{
+g0 = ggplot(dgp, aes(x = treated, y = !!input$Y_Axis)) +
+  theme_simple +
+  scale_size_area(max_size = 12) +
+  labs(x = " ",
+       y = " ",
+       # caption = paste0('Breakdown of treatment status within selected variables, from simulated sample of....'),
+       size = 'Income',
+       color = 'Race')
+
+  if (input$colorrace && input$sizeincome){
+    g0 = g0 + geom_jitter(aes(group = !!input$Y_Axis, color = race, size = income), alpha = 0.7) +
+          scale_colour_manual(values = c('black', grey_mid)) +
+          scale_size_area(max_size = 8)
+  }
+
+  if (input$sizeincome){
+    g0 = g0 + geom_jitter(aes(group = !!input$Y_Axis, size = income), alpha = 0.7) +
+          scale_size_area(max_size = 8)
+  }
+
+  if (input$colorrace){
+        g0 = g0 + geom_jitter(aes(group = !!input$Y_Axis, color = race), size = 3, alpha = 0.7) +
+            scale_colour_manual(values = c('black', grey_mid))
+  }
+
+  if (!input$colorrace & !input$sizeincome){
+    g0 = g0 + geom_jitter(aes(group = !!input$Y_Axis), size = 3, color = rmd_green)
+  }
+   
+
+
+
+  if (input$facetcollege02){
+    g0 + facet_grid(. ~ college)
+  }
+  else{
+    g0
+  }
+})
+```
+
+Things that need more work:
+
+- Grid lines to better differentiate the jitter boxes
+- Reindex income so the legend does not use scientific notation
+- Perfect size of graph
+- 
+
+## Jitter Alt{color=rmd_pink}
+
+__Explore the data with the following options using a `jitter` plot__
+
+_Note: A `jitter` plot adds a small amount of random variation to the location of each point. It is a useful way of handling overplotting caused by plotting multiple discrete variables_
+
+
+```{r, echo = F}
+varSelectInput('Y_Axis_alt', label = 'Select Y axis', data = dgp)
+
+checkboxInput("colorrace_alt", "Color by race?", FALSE)
+checkboxInput("sizeincome_alt", "Size by income?", FALSE)
+checkboxInput("facetcollege_alt", "Facet wrap by college?", FALSE)
+checkboxInput("facetrace_alt", "Facet wrap by race?", FALSE)
+
+```
+
+```{r, echo = F}
+renderPlot({
+g0 = ggplot(dgp, aes(x = treated, y = !!input$Y_Axis)) +
+  theme_simple +
+  scale_size_area(max_size = 12) +
+  labs(x = " ",
+       caption = paste0('Breakdown of treatment status within selected variables, from simulated sample of....'),
+       size = 'Income')
+
+  if (input$colorrace_alt && input$sizeincome_alt){
+    g0 = g0 + geom_jitter(aes(group = !!input$Y_Axis, color = race, size = income), alpha = 0.7) +
+          scale_colour_manual(values = c(grey_dark, grey_mid)) +
+          scale_size_area(max_size = 8)
+  }
+
+  if (input$sizeincome_alt){
+    g0 = g0 + geom_jitter(aes(group = !!input$Y_Axis, size = income), alpha = 0.7) +
+          scale_size_area(max_size = 8)
+  }
+
+  if (input$colorrace_alt){
+        g0 = g0 + geom_jitter(aes(group = !!input$Y_Axis, color = race), alpha = 0.7) +
+            scale_colour_manual(values = c(grey_dark, grey_mid))
+  }
+
+  if (!input$colorrace_alt & !input$sizeincome_alt){
+    g0 = g0 + geom_jitter(aes(group = !!input$Y_Axis), color = rmd_pink)
+  }
+
+if (input$facetrace_alt) {
+  if (input$facetcollege_alt){
+    g0 + facet_grid(college ~ race)
+  }
+  else {
+    g0 + facet_grid(. ~ race)
+  }
+}
+else {
+  if (input$facetcollege_alt){
+    g0 + facet_grid(college ~ .)
+  }
+  else{
+    g0
+  }
+}  
+})
+```

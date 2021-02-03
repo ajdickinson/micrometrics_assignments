@@ -1,0 +1,178 @@
+---
+title: "A2- Estimators"
+subtitle: "Micrometrics"
+author: "Andrew Dickinson"
+date: "Winter 2020"
+#date: "<br>`r format(Sys.time(), '%d %B %Y')`"
+header-includes:
+  - \usepackage{mathtools}
+  - \DeclarePairedDelimiter\floor{\lfloor}{\rfloor}
+  - \usepackage{amssymb}
+output: 
+  html_document:
+    toc: false
+    toc_depth: 3  
+    number_sections: false
+    theme: flatly
+    highlight: tango  
+    toc_float:
+      collapsed: true
+      smooth_scroll: true
+---
+
+
+```{r Setup, include = F}
+options(htmltools.dir.version = FALSE)
+library(pacman)
+p_load(broom, latex2exp, leaflet, ggplot2, ggthemes, viridis, dplyr, magrittr, knitr, parallel, rddtools, readxl, emoGG, dslabs, gapminder, extrafont, Ecdat, wooldridge, tidyverse, janitor, kableExtra, gridExtra, estimatr, furrr, here, broom)
+# Define pink color
+red_pink <- "#e64173"
+turquoise <- "#20B2AA"
+orange <- "#FFA500"
+red <- "#fb6107"
+blue <- "#3b3b9a"
+green <- "#8bb174"
+grey_light <- "grey70"
+grey_mid <- "grey50"
+grey_dark <- "grey20"
+purple <- "#6A5ACD"
+slate <- "#314f4f"
+# Dark slate grey: #314f4f
+# Notes directory
+dir_slides <- "~/Dropbox/Courses/"
+# Knitr options
+opts_chunk$set(
+  comment = "#>",
+  fig.align = "center",
+  fig.height = 4,
+  fig.width = 6,
+  # dpi = 300,
+  # cache = T,
+  warning = F,
+  message = F
+)
+# A blank theme for ggplot
+theme_empty <- theme_bw() + theme(
+  line = element_blank(),
+  rect = element_blank(),
+  strip.text = element_blank(),
+  axis.text = element_blank(),
+  plot.title = element_blank(),
+  axis.title = element_blank(),
+  plot.margin = structure(c(0, 0, -1, -1), unit = "lines", valid.unit = 3L, class = "unit"),
+  legend.position = "none"
+)
+theme_simple <- theme_bw() + theme(
+  line = element_blank(),
+  panel.grid = element_blank(),
+  rect = element_blank(),
+  axis.text.x = element_text(size = 10),
+  axis.text.y = element_text(size = 10),
+  axis.ticks = element_blank(),
+  plot.title = element_blank(),
+  axis.title.x = element_text(angle = 0, vjust = 0.5),
+  axis.title.y = element_text(angle = 90, vjust = 0.5),
+  legend.position = "none",
+  axis.line = element_line(color="black", size = .5)
+)
+```
+
+> Due date: Friday, January 22, 2021
+
+_For each scenario below, first describe the intuition of the estimator---what is being compared, what problems it fixes, why it works. Second, the identification strategy, inclusive of the assumption required for the identification of a causal parameter.  Third, provide an example of the estimator in use, inclusive of the specific assumptions that would be operational in that example. (Examples can be from existing literature, or from your own research programme.) Fourth, comment on any particularly relevant considerations to be made with respect to the estimation of standard errors in each environment. (There may not be.) Responses will be evaluated based on accuracy, completeness and clarity._
+
+---
+
+# {.tabset .tabset-fade .tabset-pills}
+
+## Difference Estimator
+
+__A difference estimate of the effect of $\mathbb{1}(T_i=1)$ on $Y_i$__.
+
+- __The intuition behind it__: The difference estimator finds the average (expected) difference between the treatment and control group. Furthermore, if treatment is selected randomly where all characteristics across groups are balanced, then it is reasonable to interpret the difference $E[Y_i|D_i = 1] - E[Y_i|D_i = 0]$ as the average casual effect of treatment on $Y_i$. The intuition being that the control group is a good counterfactual to the treatment group such that the difference will lead to the ATE.
+
+
+- __The identification assumption(s)__: Treatment is random or selection bias is equal to zero or conditional independence assumption: to identify the true ATE, selection bias $E[Y_0| T_i = 1] - E[Y_0|T_i = 0] = 0$.
+
+- __An example__: In a RCT the experiment is designed to be double blind. Treatment is administered to a proportion of the participants randomly. Following treatment, $Y_i$ is measured to assess the ATE.
+
+- __Anything particular about standard errors__: Heteroskedasticity can lead to an underestimation of the standard errors. Can be corrected with robust standard errors. One should be aware of a small clusters problem. Difficult to run the estimator with 2 clusters. 
+
+
+## Matching-type estimator
+
+__A matching-type estimator of the effect of  $\mathbb{1}(T_i=1)$ on $Y_i$__.
+
+- __The intuition behind it__: Assuming that selection into treatment is non-random only through a set of observable characteristics $X$, then we can match $D_i = 1$ with $D_i = 0$ types with similar characteristics. Taking the difference across these types (for a given $X$) can be interpreted as a vector of causal treatment effects. The average casual effect will be the mean across all combinations of $X$.
+
+  - This estimator tries to match everyone in the treatment group to the control group based on observable characteristics but this is not always true. This estimator imposes common support, or they are limited to covariate values where observations for both treatment and control groups are found. There are a variety of tweaks the econometrician can make to increase observations with common support (e.g. nearest neighbor matching).
+
+<br>
+
+- __The identification assumption(s)__: Matching based on observable characteristics creates a good counterfactual on unobservable characteristics. The only difference between the treatment and control groups is treatment. The conditional independence assumption. Or, selection into treatment is only on $X$ and is well approximated by $f(x)$, meaning you are modeling the relationship correctly.
+
+- __An example__: Participating in an experimental job training programs. Estimating the average effect of the program on subsequent earnings by matching on observable characteristics $X_i$ to limit selection into joining a job program.
+
+- __Anything particular about standard errors__: Weird issues with propensity score matching should be noted. But typically a good idea to use robust standard errors.
+
+
+## Difference-in-difference
+
+__A difference-in-difference estimate of the effect of  $\mathbb{1}(T_i=1)$ on $Y_i$__. 
+
+- __The intuition behind it__: Difference in difference estimators observe differences in treated groups over a time dimension; before and after treatment. That's the first difference. The second difference then compares the treated group with the control group's change over the same time period, removing any time-specific effects and fixed underlying characteristics.
+
+- __The identification assumption(s)__: Parallel trends. The treated and untreated groups would follow a constant difference over time in absence of treatment. Check the pretrends.
+
+- __An example__: Variation in state policies over time. For example, variation in adoption of medical marijuana laws can be used on a wide set of crime and health outcome variables.
+
+- __Anything particular about standard errors__: Robust standard errors should be used. Clustering at the level of treatment is widely considered a good heuristic however it is not always the correct course of action. Best case scenario is that inference does not depend on what level they are clustered at.
+
+
+## IV
+
+__Instrumenting for an endogenous regressor, $X_i$, with an instrument, $Z_i$, in order to retrieve an estimate of the causal effect of $X_i$ on $Y_i$__. 
+
+- __The intuition behind it__: If treatment is endogenous, one can decompose the variation of treatment into good and bad variation by using an exogenous instrumental variable. If the instrument meets the requirements, then the estimator will remove endogeneity by capturing only the good variation that is generated through the exogenous instrument.
+
+- __The identification assumption(s)__: Relevance, the instrument is correlated with treatment ($Cov(X_i, Z_i) \ne 0$). Exclusion restriction, the instrument is not correlated with anything in the error term ($Cov(Z_i, \varepsilon_i) = 0$). Also, variation in $Z_i$ must not predict variation in $Y_i$. It can only impact $Y_i$ through variation in $X_i$. A strong first stage is very important. For heterogeneous  IV models, the monotonicity assumption or that all those who are affected by the instrument are affected in the same way or not at all.
+
+- __An example__: Using the Vietnam draft lottery to estimate the impact of joining the military has on long run earnings. Since the selection is present among those who willfully choose to join the military, bias will be present when attempting to estimate the impact that service has on lifetime earnings. By using the compulsory draft as an instrument, the IV estimator is able to separate out the "good" variation to avoid selection bias.
+
+- __Anything particular about standard errors__: The instruments will lead to larger standard error estimates. Weak instruments lead to very large standard errors. Use robust standard errors.
+
+
+## RD
+
+__A regression-discontinuity approach to estimating the effect of  $\mathbb{1}(T_i=1)$ on $Y_i$__.
+
+- __The intuition behind it__: At arbitrary cutoffs, a RDD measures casual effects of interventions on the margins of either side of a threshold by comparing observations within a small neighborhood or bandwidth. To measure the casual effect, we compare the mean of $Y_i$ just above the threshold to the mean of $Y_i$ just below the threshold. Or, $\lim_{x\downarrow c} E[Y_i | X_i = x] - \lim_{x\uparrow c} E[Y_{0i} | X_i = x]$, where $c$ is the threshold. Two flavors, sharp and fuzzy. With a sharp RD, the probability of treatment changes from 0 to 1 as $X_i$ moves across the threshold. With a fuzzy RD, the probability of treatment jumps discontinuously at the threshold but not from 0 to 1.
+
+- __The identification assumption(s)__: No perfect manipulation of the running variable. Observable characteristics are smooth across the discontinuity. An additional monotonicity assumption is required for fuzzy RDs. 
+
+- __An example__: Qualifying exams with arbitrary point cut offs. For example, 60 and you get in and 59 you don't. Comparing student on that margin, we can estimate the effect of getting into a particular program on some outcome variable. 
+
+- __Anything particular about standard errors__: No
+
+
+## Clustering notes
+
+- __How should you cluster standard errors?__: Traditional answer: you want to cluster standard errors at the level of treatment.
+
+- It is more convincing to cluster at multiple levels and make the same inference statement. Then the discussion of what level to cluster will not become important. There are a variety of way that clustering standard errors could be argued against the traditional answer above. If you can't say that then it becomes an issue of confidence and the audience begins to dwell on it. The most fundamental thing is one's confidence. 
+
+- __Example: Star Experiment__: Assume that variation in treatment was at the classroom level. Why would I be worried about my standard errors if I do not cluster them at the level of treatment?
+
+Is there variation across students? Yes. Is any of that variation due to treatment? No. They all got treated. Could any of the variation within class be explained by treatment? No. Treatment was at the class level. What ever that variation is, it can't have anything to do with treatment since there was no variation of treatment within class. What do we want to attribute that variation to? It has nothing to do with treatment so it is wrong to attribute that noise as relevant to the inference statement we want to attribute to treatment of being in a small class. We want to compare across classes, not within class variation. If we account for this within class variation, then standard errors will be underestimated. We want to put the average difference (small vs large classes) in the context of what would be a normal amount of variation across classes (treatment variation). So clustering at the treatment level soaks up the within class variation so that we can make proper inference across the treatment levels.
+
+What are we normalizing our treatment effect to? The across group variation. We want to normalize the treatment effect by the normal amount of variation we would expect to see across classes. A normalization such that the treatment effect on average in the context of what would be the normal difference we would expect to see. How rare was this treatment?
+
+Again, you'd hope that regardless of what level of clustering, inference give the same result so you do not even have to worry about these arguments.
+
+__If we have classroom FE do we need to cluster?__:
+
+Classroom FE is picking up the average difference in y. What if there is more or less variation around Y? Is that being picked up? No it is really just picking up the mean difference in outcomes regardless of how they vary around the mean. For intuition, think of the FE as pulling out the level differences while the clustering is accommodating variation around the mean (second moment of distribution).
+
+Would you ever be concerned about not having clusters if you are doing a difference estimate? Can you do anything about it?
+
+Small clusters problem. You can't just run the estimator with 2 clusters. 
