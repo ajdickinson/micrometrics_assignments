@@ -1,0 +1,44 @@
+## A4 - Standard errors and clustering
+
+---
+
+> Due date: 9 February 2021
+
+First, simulate a DGP in which there is a panel of economic units (_e.g._, firms, students, countries) that can be organized into "clusters" of some kind (_e.g._, industry, classrooms, years). In addition to the _iid_ variation in _y_ across _ic_, also give yourself the ability to control sources of co-variation in _y_ that are specific to economic units _i_ and/or specific to clusters _c_. 
+
+Here's a bit of code that might have some harvestable stuff in it to get you started: 
+``` {r, echo=T, eval=F}
+gen_cluster <- function(n = 1000, n_cluster = 20, rho) {
+  # individual level 
+  Sigma_i <- matrix(c(1, 0, 0, 1 - rho), ncol = 2)
+  values_i <- rmvnorm(n = n, sigma = Sigma_i)
+  # cluster level
+  cluster_name <- rep(1:n_cluster, each = n / n_cluster)
+  Sigma_cl <- matrix(c(1, 0, 0, rho), ncol = 2)
+  values_cl <- rmvnorm(n = n_cluster, sigma = Sigma_cl)
+  # error consists of individual- and cluster-level components
+  e1 <- values_i[ , 1] + rep(values_cl[ , 1], each = n / n_cluster)
+  e2 <- values_i[ , 2] + rep(values_cl[ , 2], each = n / n_cluster)
+  # data generating process
+  y <- 1 + e1 + e2 
+  df <- data.frame(cluster = cluster_name, e1, e2, y)
+  return(df)
+}
+```
+
+Second, introduce the potential for treatment (i) at the individual level (varying across _i_ within _c_), and (ii) at the cluster level (varying across _c_). As part of that DGP, assign `rho` as the intra-cluster correlation with a parameter. (Thus, when `rho=1`, all units within a cluster are identical, and the effective sample size is reduced to the number of clusters. Likewise, when `rho=0`, there is no correlation of units within a cluster, and all observations are independent of each other.)
+
+Third, demonstrate that $\hat\beta$ in the following 
+
+$$y_{ic} = \alpha + \beta \mathbb{1}(T_{ic}=1) + e_{ic}~,$$
+is not sensitive to `rho` but that the confidence intervals are, and are corrected by estimating cluster-robust standard errors. 
+
+
+
+<br>
+
+---
+
+[GlenWaddell.com](http://GlenWaddell.com)
+
+
