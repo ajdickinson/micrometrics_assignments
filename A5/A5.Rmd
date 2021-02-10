@@ -1,0 +1,24 @@
+## A5 - DD trends
+
+---
+
+> Due date: 16 February 2021
+
+---
+
+**Part 1.** Demonstrate that "_parallel trends in the absence of treatment_" is not sufficient to justify the difference-in-differences estimator&mdash;that, in order to identify a treatment-induced change in some outcome with a DD strategy, we must assume that outcomes in treated and control units are parallel _throughout the period of analysis_. Since we can evidence common pre-treatment trends, it is, if anything, in the _presence_ of treatment where the assumption is most active, in a way. 
+
+*Q:* What is the DD model prepared to well identify? (_Level differences._) 
+
+*Q:* Where do changes in slope (say, subsequent to treatment) show up then? (_They end up in the DD estimate. Do we wnat it to? Is there theory suggesting that we should anticipate only a level shift, or a change in both level and slope?_)
+
+<br>
+
+---
+
+**Part 2.** Produce an event study figure on the same DGP.
+
+<br>
+
+---
+
