@@ -150,8 +150,8 @@ cluster_iter = function(iter = 1, n_obs = 5000, n_cluster = 20) {
 
 #### Simulate n times
 
-```{r, warning=F, results=F, cache = T}
-sim_list <- map(1:1000, cluster_iter)
+```{r, warning=F, results=F}
+sim_list <- map(1:5000, cluster_iter)
 sim_df <- bind_rows(sim_list)
 
 sim_df_i = sim_df %>% filter(term == "treat_i")
@@ -167,47 +167,40 @@ I introduced treatment that varies across $i$ and $c$.
 
 #### Plot
 
-```{r}
+```{r, echo = F}
 checkboxInput("points", "Include confidence interval points?", TRUE)
 ```
 
 ```{r, echo = F, fig.width=10}
-#   g0 = ggplot(data = sim_df) +
+# g0 = ggplot(data = sim_df_c) +
 #     geom_vline(xintercept = 0, linetype = "dashed") +
+#     geom_hline(yintercept = 0, linetype = "dashed") +
 #     theme_A4 +
 #     scale_size_area(max_size = 12) +
-#     ylim(-0.007, 0.007) +
+#     ylim(-0.005, 0.005) +
 #     labs(title = "Confidence Interval Estimates: Comparison of clustered and unclustered standard errors with intra-cluster correlation",
 #          x = "Rho",
 #          y = "Difference between clustered and unclustered estimate Beta",
 #          # caption = paste0('Breakdown of treatment status within selected variables, from simulated sample of....'),
-#          color = 'Clustered?') +
-#     geom_point(data = subset(sim_df, se_type %in% c("normal")), aes(x = rho, y = diff), shape = 4, size = 0.5) +
-#     geom_point(data = subset(sim_df, se_type %in% c("normal")), aes(x = rho, y = upper), color = blue, size = 0.5) +
-#     geom_point(data = subset(sim_df, se_type %in% c("normal")), aes(x = rho, y = lower), color = blue, size = 0.5) +
-#     geom_point(data = subset(sim_df, se_type %in% c("clustered")), aes(x = rho, y = diff), size = 0.5) +
-#     geom_point(data = subset(sim_df, se_type %in% c("clustered")), aes(x = rho, y = upper), size = 0.5) +
-#     geom_point(data = subset(sim_df, se_type %in% c("clustered")), aes(x = rho, y = lower), size = 0.5) +
-#     geom_smooth(data = subset(sim_df, se_type %in% c("normal") & rho < 0),
-#                 aes(x = rho, y = upper), se = FALSE, color = "black") +
-#     geom_smooth(data = subset(sim_df, se_type %in% c("normal") & rho < 0),
-#                 aes(x = rho, y = lower), se = FALSE, color = "black") +
-#     geom_smooth(data = subset(sim_df, se_type %in% c("normal") & rho > 0),
-#                 aes(x = rho, y = upper), se = FALSE, color = "black") +
-#     geom_smooth(data = subset(sim_df, se_type %in% c("normal") & rho > 0),
-#                 aes(x = rho, y = lower), se = FALSE, color = "black") +
+#          color = 'Clustered?')
 # 
-#     geom_smooth(data = subset(sim_df, se_type %in% c("clustered") & rho < 0),
+#   g0 = g0 +
+#     geom_point(data = subset(sim_df_c, se_type %in% c("normal")), aes(x = rho, y = diff_c), shape = 4, size = 0.5) +
+#     geom_point(data = subset(sim_df_c, se_type %in% c("normal")), aes(x = rho, y = upper), color = grey_mid, size = 0.5) +
+#     geom_point(data = subset(sim_df_c, se_type %in% c("normal")), aes(x = rho, y = lower), color = grey_mid, size = 0.5) +
+#     geom_point(data = subset(sim_df_c, se_type %in% c("clustered")), aes(x = rho, y = diff_c), size = 0.5) +
+#     geom_point(data = subset(sim_df_c, se_type %in% c("clustered")), aes(x = rho, y = upper), color = grey_dark, size = 0.5) +
+#     geom_point(data = subset(sim_df_c, se_type %in% c("clustered")), aes(x = rho, y = lower), color = grey_dark, size = 0.5) +
+#     geom_smooth(data = subset(sim_df_c, se_type %in% c("normal")),
 #                 aes(x = rho, y = upper), se = FALSE, color = red) +
-#     geom_smooth(data = subset(sim_df, se_type %in% c("clustered") & rho < 0),
+#     geom_smooth(data = subset(sim_df_c, se_type %in% c("normal")),
 #                 aes(x = rho, y = lower), se = FALSE, color = red) +
-#     geom_smooth(data = subset(sim_df, se_type %in% c("clustered") & rho > 0),
-#                 aes(x = rho, y = upper), se = FALSE, color = red) +
-#     geom_smooth(data = subset(sim_df, se_type %in% c("clustered") & rho > 0),
-#                 aes(x = rho, y = lower), se = FALSE, color = red)
-# 
-# g0
-
+#     geom_smooth(data = subset(sim_df_c, se_type %in% c("clustered")),
+#                 aes(x = rho, y = upper), se = FALSE, color = blue) +
+#     geom_smooth(data = subset(sim_df_c, se_type %in% c("clustered")),
+#                 aes(x = rho, y = lower), se = FALSE, color = blue)
+#   
+#   g0
 ```
 
 
@@ -215,10 +208,10 @@ checkboxInput("points", "Include confidence interval points?", TRUE)
 renderPlot({
 g0 = ggplot(data = sim_df_c) +
     geom_vline(xintercept = 0, linetype = "dashed") +
-  geom_hline(yintercept = 0, linetype = "dashed") +
+    geom_hline(yintercept = 0, linetype = "dashed") +
     theme_A4 +
     scale_size_area(max_size = 12) +
-    # ylim(-0.007, 0.007) +
+    ylim(-0.03, 0.03) +
     labs(title = "Confidence Interval Estimates: Comparison of clustered and unclustered standard errors with intra-cluster correlation",
          x = "Rho",
          y = "Difference between clustered and unclustered estimate Beta",
@@ -274,7 +267,7 @@ Blue line: Clustered confidence interval estimates
 
 #### Plot
 
-```{r}
+```{r, echo = F}
 checkboxInput("points", "Include confidence interval points?", TRUE)
 ```
 
@@ -322,10 +315,10 @@ checkboxInput("points", "Include confidence interval points?", TRUE)
 renderPlot({
 g0 = ggplot(data = sim_df_i) +
     geom_vline(xintercept = 0, linetype = "dashed") +
-  geom_hline(yintercept = 0, linetype = "dashed") +
+   geom_hline(yintercept = 0, linetype = "dashed") +
     theme_A4 +
     scale_size_area(max_size = 12) +
-    # ylim(-0.007, 0.007) +
+    ylim(-0.03, 0.03) +
     labs(title = "Confidence Interval Estimates: Comparison of clustered and unclustered standard errors with intra-cluster correlation",
          x = "Rho",
          y = "Difference between clustered and unclustered estimate Beta",

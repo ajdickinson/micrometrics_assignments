@@ -1,9 +1,9 @@
 library(pacman)
-p_load(fixest, mvtnorm, magrittr, tidyverse, broom)
+p_load(fixest, mvtnorm, magrittr, tidyverse, broom, estimatr)
 
 n_obs = 1000
 n_cluster = 20
-rho = 1
+rho = 0
 iter = 1
 
 
@@ -23,10 +23,14 @@ d_iter = tibble(
   treat_i = sample(c(0,1), n_obs, replace = TRUE),
   treat_c = rep(0:1, each = n_obs / n_cluster, len = n_obs),
   ## data generating process for both treatment levels i and c
-  y_i = 1 + treat_i + e1 + e2,
-  y_c = 1 + treat_c + e1 + e2
+  y_i = 1 + treat_i,
+  y_c = 1 + treat_c
 )
 ## run each model; treatment at i and c
+# m_i1 = lm_robust(y_i ~ treat_i, data = d_iter) %>% tidy()
+# m_i2 = lm_robust(y_i ~ treat_i, data = d_iter, clusters = cluster) %>% tidy()
+# m_c1 = lm_robust(y_c ~ treat_c, data = d_iter) %>% tidy()
+# m_c2 = lm_robust(y_c ~ treat_c, data = d_iter, clusters = cluster) %>% tidy()
 m_i = feols(data = d_iter, y_i ~ treat_i)
 m_c = feols(data = d_iter, y_c ~ treat_c)
 ## package into single data frame that will output into a list
