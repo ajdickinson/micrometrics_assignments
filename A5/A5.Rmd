@@ -1,6 +1,69 @@
-## A5 - DD trends
-
 ---
+title: "A5 - DD trends"
+author: "Andrew Dickinson"
+date: "Winter 2021"
+#date: "<br>`r format(Sys.time(), '%d %B %Y')`"
+header-includes:
+  - \usepackage{mathtools}
+  - \DeclarePairedDelimiter\floor{\lfloor}{\rfloor}
+  - \usepackage{amssymb}
+output: 
+  html_document:
+    toc: false
+    toc_depth: 3  
+    number_sections: false
+    theme: flatly
+    highlight: tango  
+    toc_float:
+      collapsed: true
+      smooth_scroll: true 
+---
+
+```{r Setup, include = F}
+options(htmltools.dir.version = FALSE)
+library(pacman)
+p_load(tidyverse, ggplot)
+# Define pink color
+red_pink <- "#e64173"
+turquoise <- "#20B2AA"
+orange <- "#FFA500"
+red <- "#fb6107"
+blue <- "#3b3b9a"
+green <- "#8bb174"
+grey_light <- "grey70"
+grey_mid <- "grey50"
+grey_dark <- "grey20"
+purple <- "#6A5ACD"
+slate <- "#314f4f"
+rmd_green <- "#73d7ad"
+rmd_pink <- "#d7739d"
+# Dark slate grey: #314f4f
+
+# A blank theme for ggplot
+theme_empty <- theme_bw() + theme(
+  line = element_blank(),
+  rect = element_blank(),
+  strip.text = element_blank(),
+  axis.text = element_blank(),
+  plot.title = element_blank(),
+  axis.title = element_blank(),
+  plot.margin = structure(c(0, 0, -1, -1), unit = "lines", valid.unit = 3L, class = "unit"),
+  legend.position = "none"
+)
+theme_A4 <- theme_bw() + theme(
+  line = element_blank(),
+  panel.grid = element_blank(),
+  rect = element_blank(),
+  axis.text.x = element_text(size = 10),
+  axis.text.y = element_text(size = 10),
+  axis.ticks = element_blank(),
+  axis.title.x = element_text(angle = 0, vjust = 0.5),
+  axis.title.y = element_text(angle = 90, vjust = 0.5),
+  legend.position = "bottom",
+  plot.title = element_text(size = 10, face = "bold"),
+  axis.line = element_line(color="black", size = .5)
+)
+```
 
 > Due date: 16 February 2021
 
@@ -22,3 +85,70 @@
 
 ---
 
+## Function
+
+```{r}
+dd_iter = function(iter = 1, n_ind = 10, n_period = 10) {
+  n_obs = n_period*n_ind
+    dat_iter <- tibble(
+    iter = iter,
+    id = rep(1:n_ind, len = n_obs),
+    time = rep(1:n_period, each = n_obs / n_period),
+    post = ifelse(time >= 5, 1, 0),
+    treated = rep(0:1, length = n_obs),
+    treat = treated*post,
+    group = ifelse(treated == 1 & time >= 5, 1,
+                    ifelse(treated == 1 & time < 5, 2,
+                           ifelse(treated == 0 & time >= 5, 3, 4))
+                    ),
+    y = 2 + 2*(treated == 1) + 2*(post == 1) + 1.5*(treat == 1) + rnorm(n_obs),
+    z = 2 + 2*(treated == 1) + 2*(post == 1) + 1.5*(treat == 1)*(time / 5) + rnorm(n_obs)
+    )
+    return(dat_iter)
+}
+```
+
+## Simulation
+
+```{r}
+sim_list <- map(1:400, dd_iter)
+sim_df <- bind_rows(sim_list) %>% mutate(iter_group = iter + (group / 100))
+```
+
+## Visual
+
+```{r}
+ggplot(data = sim_df %>% filter(iter == 1), aes(x = time, y = y, colour = factor(treated))) +
+  geom_point(alpha = 1) +
+  geom_vline(xintercept = 5, linetype = "dashed") +
+  geom_smooth(aes(group = group), method = "lm", se = F, color = "black")
+```
+
+
+```{r}
+ggplot(data = sim_df, aes(x = time, y = y, colour = factor(treated))) +
+  geom_point(alpha = 0.01) +
+  geom_vline(xintercept = 5, linetype = "dashed") +
+  stat_smooth(geom='line', aes(group = iter_group), method = "lm", alpha=0.1, se=FALSE, color = "grey50") +
+  geom_smooth(aes(group = group), method = "lm", se = F, color = "black")
+```
+
+
+
+
+```{r}
+mean_z = sim_df %>% group_by(group) %>% summarize(mean_z = mean(z))
+
+
+ggplot(data = sim_df, aes(x = time, y = z, colour = factor(treated))) +
+  geom_point(alpha = 0.01) +
+  geom_vline(xintercept = 5, linetype = "dashed") +
+  stat_smooth(geom='line', aes(group = iter_group), method = "lm", alpha=0.1, se=FALSE, color = "grey50") +
+  geom_smooth(aes(group = group), method = "lm", se = F, size = 0.5, color = "black") +
+  geom_smooth(data = sim_df %>% filter(group == 1), aes(y = y), method = "lm", se = F, color = "red", size = 0.5) +
+  geom_point(aes(x = 7.5, y = as.numeric(mean_z[1,2]))) +
+  geom_point(aes(x = 7.5, y = as.numeric(mean_z[2,2]))) +
+  geom_point(aes(x = 2.5, y = as.numeric(mean_z[3,2]))) +
+  geom_point(aes(x = 2.5, y = as.numeric(mean_z[4,2])))
+
+```

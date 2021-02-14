@@ -1,7 +1,7 @@
 ---
 title: "A4 - Standard errors and clustering"
 author: "Andrew Dickinson"
-date: "Winter 2020"
+date: "Winter 2021"
 #date: "<br>`r format(Sys.time(), '%d %B %Y')`"
 header-includes:
   - \usepackage{mathtools}
