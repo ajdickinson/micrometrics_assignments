@@ -111,7 +111,7 @@ dd_iter = function(iter = 1, n_ind = 10, n_period = 10) {
 ## Simulation
 
 ```{r}
-sim_list <- map(1:400, dd_iter)
+sim_list <- map(1:100, dd_iter)
 sim_df <- bind_rows(sim_list) %>% mutate(iter_group = iter + (group / 100))
 ```
 
@@ -120,6 +120,7 @@ sim_df <- bind_rows(sim_list) %>% mutate(iter_group = iter + (group / 100))
 ```{r}
 ggplot(data = sim_df %>% filter(iter == 1), aes(x = time, y = y, colour = factor(treated))) +
   geom_point(alpha = 1) +
+  ylim(ymin = -1, ymax = 10) +
   geom_vline(xintercept = 5, linetype = "dashed") +
   geom_smooth(aes(group = group), method = "lm", se = F, color = "black")
 ```
@@ -129,6 +130,7 @@ ggplot(data = sim_df %>% filter(iter == 1), aes(x = time, y = y, colour = factor
 ggplot(data = sim_df, aes(x = time, y = y, colour = factor(treated))) +
   geom_point(alpha = 0.01) +
   geom_vline(xintercept = 5, linetype = "dashed") +
+  ylim(ymin = -1, ymax = 10) +
   stat_smooth(geom='line', aes(group = iter_group), method = "lm", alpha=0.1, se=FALSE, color = "grey50") +
   geom_smooth(aes(group = group), method = "lm", se = F, color = "black")
 ```
@@ -138,14 +140,16 @@ ggplot(data = sim_df, aes(x = time, y = y, colour = factor(treated))) +
 
 ```{r}
 mean_z = sim_df %>% group_by(group) %>% summarize(mean_z = mean(z))
-
+mean_y = sim_df %>% filter(group == 1) %>% summarize(mean_y = mean(y))
 
 ggplot(data = sim_df, aes(x = time, y = z, colour = factor(treated))) +
   geom_point(alpha = 0.01) +
+  ylim(ymin = -1, ymax = 10) +
   geom_vline(xintercept = 5, linetype = "dashed") +
   stat_smooth(geom='line', aes(group = iter_group), method = "lm", alpha=0.1, se=FALSE, color = "grey50") +
   geom_smooth(aes(group = group), method = "lm", se = F, size = 0.5, color = "black") +
   geom_smooth(data = sim_df %>% filter(group == 1), aes(y = y), method = "lm", se = F, color = "red", size = 0.5) +
+  geom_point(aes(x = 7.5, y = as.numeric(mean_y[1,1])), color = "black") +
   geom_point(aes(x = 7.5, y = as.numeric(mean_z[1,2]))) +
   geom_point(aes(x = 7.5, y = as.numeric(mean_z[2,2]))) +
   geom_point(aes(x = 2.5, y = as.numeric(mean_z[3,2]))) +
