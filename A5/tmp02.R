@@ -8,20 +8,20 @@ n_obs = n_period*n_ind
 
 dd_iter = function(iter = 1, n_ind = 10, n_period = 10) {
   n_obs = n_period*n_ind
-    dat_iter <- tibble(
+  dat_iter <- tibble(
     iter = iter,
     id = rep(1:n_ind, len = n_obs),
     time = rep(1:n_period, each = n_obs / n_period),
-    post = ifelse(time >= 5, 1, 0),
+    post = ifelse(time >= event, 1, 0),
     treated = rep(0:1, length = n_obs),
     treat = treated*post,
-    group = ifelse(treated == 1 & time >= 5, 1,
-                    ifelse(treated == 1 & time < 5, 2,
-                           ifelse(treated == 0 & time >= 5, 3, 4))
-                    ),
-    y = 2 + 2*(treated == 1) + 2*(post == 1) + 1.5*(treat == 1) + rnorm(n_obs),
-    z = 2 + 2*(treated == 1) + 2*(post == 1) + 1.5*(treat == 1)*time + rnorm(n_obs)
-    )
+    group = ifelse(treated == 1 & time >= event, 1,
+                   ifelse(treated == 1 & time < event, 2,
+                          ifelse(treated == 0 & time >= event, 3, 4))
+    ),
+    y = 2 + 2*(treated == 1) + (0.2*time) + 1.5*(treat == 1) + rnorm(n_obs),
+    z = 2 + 2*(treated == 1) + (0.2*time) + 1.5*(treat == 1)*(time / event) + rnorm(n_obs)
+  )
     return(dat_iter)
 }
     
