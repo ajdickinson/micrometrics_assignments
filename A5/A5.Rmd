@@ -22,14 +22,14 @@ output:
 ```{r Setup, include = F}
 options(htmltools.dir.version = FALSE)
 library(pacman)
-p_load(tidyverse, ggplot)
+p_load(tidyverse, ggplot, fixest)
 # Define pink color
 red_pink <- "#e64173"
 turquoise <- "#20B2AA"
 orange <- "#FFA500"
 red <- "#fb6107"
 blue <- "#3b3b9a"
-green <- "#8bb174"
+green <- "#38c57f"
 grey_light <- "grey70"
 grey_mid <- "grey50"
 grey_dark <- "grey20"
@@ -50,7 +50,7 @@ theme_empty <- theme_bw() + theme(
   plot.margin = structure(c(0, 0, -1, -1), unit = "lines", valid.unit = 3L, class = "unit"),
   legend.position = "none"
 )
-theme_A4 <- theme_bw() + theme(
+theme_A5 <- theme_bw() + theme(
   line = element_blank(),
   panel.grid = element_blank(),
   rect = element_blank(),
@@ -59,7 +59,7 @@ theme_A4 <- theme_bw() + theme(
   axis.ticks = element_blank(),
   axis.title.x = element_text(angle = 0, vjust = 0.5),
   axis.title.y = element_text(angle = 90, vjust = 0.5),
-  legend.position = "bottom",
+  legend.position = "right",
   plot.title = element_text(size = 10, face = "bold"),
   axis.line = element_line(color="black", size = .5)
 )
@@ -116,54 +116,80 @@ dd_iter = function(iter = 1, n_ind = 10, n_period = 11, event = 6) {
 #### Simulation
 
 ```{r}
-sim_list <- map(1:500, dd_iter, n_ind = 10)
+sim_list <- map(1:300, dd_iter, n_ind = 10)
+
+sim_list %>% head(2)
+```
+
+```{r}
 sim_df <- bind_rows(sim_list) %>% mutate(iter_group = iter + (group / 100))
 ```
 
+
 #### Visual
 
-```{r}
+```{r, warning=F, message = F, echo = F}
 event = 6
 
 ggplot(data = sim_df %>% filter(iter == 1), aes(x = time, y = y, colour = factor(treated))) +
-  geom_point(alpha = 1) +
+  geom_jitter(alpha = 1) +
   ylim(ymin = -1, ymax = 10) +
   geom_vline(xintercept = event, linetype = "dashed") +
   geom_smooth(aes(group = group), method = "lm", se = F, color = "black") +
-  scale_x_continuous(breaks = seq(0, 11, 1))
+  scale_x_continuous(breaks = seq(0, 11, 1)) +
+  labs(x = "Time",
+       y = "Outcome",
+       color = "Treatment") +
+  scale_color_manual(values = c(grey_mid, orange)) +
+  theme_A5
 ```
 
 
-```{r}
+```{r, warning=F, message = F, echo = F}
 ggplot(data = sim_df, aes(x = time, y = y, colour = factor(treated))) +
-  geom_point(alpha = 0.01) +
+  geom_point(alpha = 0.05, size = 0.1) +
   geom_vline(xintercept = 5, linetype = "dashed") +
   ylim(ymin = -1, ymax = 10) +
-  stat_smooth(geom='line', aes(group = iter_group), method = "lm", alpha=0.1, se=FALSE, color = "grey50") +
-  geom_smooth(aes(group = group), method = "lm", se = F, color = "black") +
-  scale_x_continuous(breaks = seq(0, 11, 1))
+  stat_smooth(geom='line', aes(group = iter_group), method = "lm", alpha=0.1, size = 0.25, se=FALSE, color = grey_dark) +
+  geom_smooth(aes(group = group), method = "lm", se = F, color = "black", size = 0.5) +
+  scale_x_continuous(breaks = seq(0, 11, 1)) +
+  labs(title = "DiD sim",
+       x = "Time",
+       y = "Outcome",
+       color = "Treatment") +
+  scale_color_manual(values = c(grey_light, orange)) +
+  theme_A5 +
+  theme(legend.position = "none") 
 ```
 
 
 
 
-```{r}
+```{r, warning=F, message = F, echo = F}
 mean_z = sim_df %>% group_by(group) %>% summarize(mean_z = mean(z))
 mean_y = sim_df %>% filter(group == 1) %>% summarize(mean_y = mean(y))
 
 ggplot(data = sim_df, aes(x = time, y = z, colour = factor(treated))) +
-  geom_point(alpha = 0.01) +
+  geom_point(alpha = 0.05, size = 0.1) +
   ylim(ymin = -1, ymax = 10) +
-  geom_vline(xintercept = 5, linetype = "dashed") +
-  stat_smooth(geom='line', aes(group = iter_group), method = "lm", alpha=0.1, se=FALSE, color = "grey50") +
+  geom_vline(xintercept = 6, linetype = "dashed") +
+  stat_smooth(geom='line', aes(group = iter_group), method = "lm", alpha=0.1, size = 0.25, se=FALSE, color = "grey50") +
   geom_smooth(aes(group = group), method = "lm", se = F, size = 0.5, color = "black") +
   geom_smooth(data = sim_df %>% filter(group == 1), aes(y = y), method = "lm", se = F, color = "red", size = 0.5, linetype = "dashed") +
-  geom_point(aes(x = 8.5, y = as.numeric(mean_y[1,1])), color = "black") +
-  geom_point(aes(x = 8.5, y = as.numeric(mean_z[1,2])), color = purple) +
-  geom_point(aes(x = 3, y = as.numeric(mean_z[2,2])), color = red) +
-  geom_point(aes(x = 8.5, y = as.numeric(mean_z[3,2])), color = orange) +
-  geom_point(aes(x = 3, y = as.numeric(mean_z[4,2])), color = green) +
-  scale_x_continuous(breaks = seq(0, 11, 1))
+  geom_point(aes(x = 8.5, y = as.numeric(mean_y[1,1])), size = 2, color = green) +
+  geom_point(aes(x = 8.5, y = as.numeric(mean_z[1,2])), size = 2, color = "red") +
+  geom_point(aes(x = 3, y = as.numeric(mean_z[2,2])), size = 2, color = "blue") +
+  geom_point(aes(x = 8.5, y = as.numeric(mean_z[3,2])), size = 2, color = green) +
+  geom_point(aes(x = 3, y = as.numeric(mean_z[4,2])), size = 2, color = "blue") +
+  scale_x_continuous(breaks = seq(0, 11, 1)) +
+  labs(title = "DiD sim with differential trends post treatment",
+       x = "Time",
+       y = "Outcome",
+       color = "Treatment",
+       caption = "A parallel trends assumption, in the presence of treatment, visualized would be the red dashed line.") +
+  scale_color_manual(values = c(grey_light, orange)) +
+  theme_A5 +
+  theme(legend.position = "none")
 
 ```
 
@@ -174,10 +200,10 @@ ggplot(data = sim_df, aes(x = time, y = z, colour = factor(treated))) +
 #### Simulation
 
 ```{r}
-n_ind = 10
-n_period = 10
+n_ind = 50
+n_period = 11
 n_obs = n_period*n_ind
-event = 5
+event = 6
 
 dat_iter = tibble(
   id = rep(1:n_ind, len = n_obs),
@@ -192,16 +218,19 @@ dat_iter = tibble(
   z = 2 + 2*(treat == 1) + (0.2*time) + 1.5*(treat == 1)*(post == 1)*(time / event) + rnorm(n_obs)
 ) %>% panel(panel.id = ~id + time) %>% 
   arrange(id, time)
-## run each model; treatment at i and c
 
-m1 = feols(data = dat_iter, y ~ i(treat, time, 5) | id + time)
-fixest::coefplot(m1)
-
-m2 = feols(data = dat_iter, z ~ i(treat, time, 5) | id + time)
-fixest::coefplot(m2)
 ```
 
 
 #### Visual
 
+```{r, warning = F, message=F, echo = F}
+m1 = feols(data = dat_iter, y ~ i(treat, time, 5) | id + time)
+fixest::coefplot(m1)
+```
+
+```{r, warning = F, message=F, echo = F}
+m2 = feols(data = dat_iter, z ~ i(treat, time, 5) | id + time)
+fixest::coefplot(m2)
+```
 
