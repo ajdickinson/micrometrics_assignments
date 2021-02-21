@@ -1,0 +1,20 @@
+## A6 - Event study
+
+---
+
+> Due date: 25 February 2021?
+
+---
+
+An event study can be described by the estimation of the model,
+$$y_{it} = \alpha_i + \sum_{t~\ne~T-1}\beta_t~(T_{it}=1)+e_{it}~,$$
+where $T_{it}=1$ captures the arrival of treatment (in period $T$). The sum is meant to imply that the omitted category is the period prior to the onset of treatment.
+
+**Part 1.** Simulate a DGP in which treatment is imposed on a fraction of units in a panel. Adopting something like the DGP of A5 would be reasonable. Produce an event study figure the represents the effect of treatment on outcomes.
+
+**Part 2:** Build into that DGP the potential for **(i)** non-parallel trends, **(ii)** parallel pre-treatment trends, with trends diverging in post treatment periods, **(iii)** an Ashenfelter dip, and **(iv)** a treatment that is anticiapted (in a way that has units "responding" before it arrives. (_There are more violations, obviously, but these are a good set to start with. Add others if you are in an area that you think has a particular challenge._)
+
+<br>
+
+---
+
