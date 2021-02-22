@@ -35,7 +35,7 @@ dat_iter = tibble(
 
 
 
-m1 = feols(data = dat_iter, y ~ treat/factor(f_time) | id + time) %>% tidy(conf.int = T) %>% 
+m1 = feols(data = dat_iter, y ~ i(treat, f_time, event[1]) | id + time) %>% tidy(conf.int = T) %>% 
   mutate(time = readr::parse_number(as.character(term))) %>%
   select(time, term, estimate, p.value, conf.low, conf.high) %>% 
   mutate(group = "y",
