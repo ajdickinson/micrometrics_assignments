@@ -173,7 +173,7 @@ es_sim = function(iter = 1, n_ind = 10, n_period = 11, event = 6, pre_treat = 5,
 ## Visualization function
 
 
-```{r, fig.width=10, fig.height=40}
+```{r}
 es_vis = function(n_ind = 30, n_period = 11, event = 6, pre_treat = 5,
                   post_treat = 5){
   
@@ -197,7 +197,7 @@ g0 = ggplot(data = sim_df, aes(x = time, y = estimate)) +
   geom_hline(yintercept = 0, size = 0.1, alpha = 1) +
   geom_vline(xintercept = -0.5, linetype = "dashed", size = 0.25, color= grey_mid) +
   theme_A6 +
-  facet_wrap(~group, nrow = 2)
+  facet_wrap(~group, nrow = 3)
 
 return(g0)
 }
@@ -207,7 +207,7 @@ return(g0)
 ## Simulation (iter = 1)
 
 
-```{r}
+```{r,fig.width=10, fig.height=20}
 es_vis()
 ```
 
