@@ -1,0 +1,247 @@
+---
+title: "A6 - Event study analysis"
+subtitle: "A poor man's shiny app"
+author: "Andrew Dickinson"
+date: "Winter 2021"
+#date: "<br>`r format(Sys.time(), '%d %B %Y')`"
+header-includes:
+  - \usepackage{mathtools}
+  - \DeclarePairedDelimiter\floor{\lfloor}{\rfloor}
+  - \usepackage{amssymb}
+output: 
+  html_document:
+    toc: false
+    toc_depth: 3  
+    number_sections: false
+    theme: flatly
+    highlight: tango  
+    toc_float:
+      collapsed: true
+      smooth_scroll: true 
+---
+
+```{r Setup, include = F}
+options(htmltools.dir.version = FALSE)
+library(pacman)
+p_load(tidyverse, ggplot2, fixest, broom, ggthemes)
+# Define pink color
+red_pink <- "#e64173"
+turquoise <- "#20B2AA"
+orange <- "#FFA500"
+red <- "#fb6107"
+blue <- "#3b3b9a"
+green <- "#8bb174"
+grey_light <- "grey70"
+grey_mid <- "grey50"
+grey_dark <- "grey20"
+purple <- "#6A5ACD"
+slate <- "#314f4f"
+rmd_green <- "#73d7ad"
+rmd_pink <- "#d7739d"
+# Dark slate grey: #314f4f
+
+# A blank theme for ggplot
+theme_empty <- theme_bw() + theme(
+  line = element_blank(),
+  rect = element_blank(),
+  strip.text = element_blank(),
+  axis.text = element_blank(),
+  plot.title = element_blank(),
+  axis.title = element_blank(),
+  plot.margin = structure(c(0, 0, -1, -1), unit = "lines", valid.unit = 3L, class = "unit"),
+  legend.position = "none"
+)
+theme_A6 <- theme_bw() + theme(
+  line = element_blank(),
+  panel.grid = element_blank(),
+  rect = element_blank(),
+  axis.ticks = element_line(),
+  axis.text.x = element_text(size = 10),
+  axis.text.y = element_text(size = 10),
+  axis.title.x = element_text(angle = 0, vjust = 0.5),
+  axis.title.y = element_text(angle = 90, vjust = 0.5),
+  legend.position = "bottom",
+  plot.title = element_text(size = 10, face = "bold"),
+  axis.line = element_line(color="black", size = .5)
+)
+```
+
+> Due date: 24 February 2021
+
+# {.tabset .tabset-fade .tabset-pills}
+
+## Question
+
+An event study can be described by the estimation of the model,
+$$y_{it} = \alpha_i + \sum_{t~\ne~T-1}\beta_t~(T_{it}=1)+e_{it}~,$$
+where $T_{it}=1$ captures the arrival of treatment (in period $T$). The sum is meant to imply that the omitted category is the period prior to the onset of treatment.
+
+**Part 1.** Simulate a DGP in which treatment is imposed on a fraction of units in a panel. Adopting something like the DGP of A5 would be reasonable. Produce an event study figure the represents the effect of treatment on outcomes.
+
+**Part 2:** Build into that DGP the potential for **(i)** non-parallel trends, **(ii)** parallel pre-treatment trends, with trends diverging in post treatment periods, **(iii)** an Ashenfelter dip, and **(iv)** a treatment that is anticiapted (in a way that has units "responding" before it arrives. (_There are more violations, obviously, but these are a good set to start with. Add others if you are in an area that you think has a particular challenge._)
+
+## DGP function
+
+```{r}
+es_sim = function(iter = 1, n_ind = 10, n_period = 11, event = 6, pre_treat = 5, post_treat = 5) {
+  n_obs = n_period*n_ind
+  ## Generate dgp
+  dat_iter = tibble(
+    ## iteration
+    iter = iter,
+    ## timing of treatment
+    event = event,
+    ## id variable
+    id = rep(1:n_ind, len = n_obs),
+    ## time variables: est_time limits the number of time interactions to function inputs
+    time = rep(1:n_period, each = n_obs / n_period),
+    est_time = case_when(
+          time < event - pre_treat ~ -pre_treat,
+          time > event + post_treat ~ post_treat,
+          TRUE ~ time - event
+        ),
+    ## Var that turns on after treatment
+    post = ifelse(time >= event, 1, 0),
+    lag1_post = ifelse(time == (event - 1) , 1, 0),
+    lag2_post = ifelse(time == (event - 2) , 1, 0),
+    ## Random assignment of treatment
+    treat = rep(0:1, length = n_obs),
+    ## Grouping into pre-post treat-control groups
+    group = case_when(
+          treat == 1 & time >= event ~ 1,
+          treat == 1 & time <event ~ 2,
+          treat == 0 & time >= event ~ 3,
+          TRUE ~ 4
+        ),
+    ## Generate outcome variables
+    ## parallel trends
+    para = 2 + 2*(treat == 1) + (0.2*time) + 1.5*(treat == 1)*(post == 1) + rnorm(n_obs),
+    ## not parallel trends
+    npara = para - (0.2*time)*(treat == 0),
+    ## divergent trends following treatment
+    div = 2 + 2*(treat == 1) + (0.2*time) + 1.5*(treat == 1)*(post == 1)*(time / event)^(1.7) + rnorm(n_obs),
+    ## ashenfelter dip - selection into treatment
+    ash = para - 1*(treat == 1)*(lag1_post == 1) - .5*(treat == 1)*(lag2_post == 1),
+    ## anticipation of treatment
+    ant = para + 1*(treat == 1)*(lag1_post == 1) + 1*(treat == 1)*(lag2_post == 1)
+  ) %>% panel(panel.id = ~id + time) %>% ## assign as a panel
+    arrange(id, time)
+  
+  ## Estimate the four models 
+  
+   m_para = feols(data = dat_iter, para ~ i(treat, est_time, -1) | id + time) %>% tidy(conf.int = T) %>% 
+    mutate(time = readr::parse_number(as.character(term))) %>%
+    select(time, term, estimate, p.value, conf.low, conf.high) %>% 
+    mutate(group = "Parallel trends",
+           iter_group = paste0("Parallel trends", iter)) %>% 
+    arrange(time)
+  
+  m_npara = feols(data = dat_iter, npara ~ i(treat, est_time, -1) | id + time) %>% tidy(conf.int = T) %>% 
+    mutate(time = readr::parse_number(as.character(term))) %>%
+    select(time, term, estimate, p.value, conf.low, conf.high) %>% 
+    mutate(group = "Not parallel trends",
+           iter_group = paste0("Not parallel trends", iter)) %>% 
+    arrange(time)
+  
+  m_div = feols(data = dat_iter, div ~ i(treat, est_time, -1) | id + time) %>% tidy(conf.int = T) %>% 
+    mutate(time = readr::parse_number(as.character(term))) %>%
+    select(time, term, estimate, p.value, conf.low, conf.high) %>% 
+    mutate(group = "Divergent post treatment trends",
+           iter_group = paste0("Divergent post treatment trends", iter)) %>% 
+    arrange(time)
+  
+  m_ash = feols(data = dat_iter, ash ~ i(treat, est_time, -1) | id + time) %>% tidy(conf.int = T) %>%
+    mutate(time = readr::parse_number(as.character(term))) %>%
+    select(time, term, estimate, p.value, conf.low, conf.high) %>%
+    mutate(group = "Ashenfelter dip",
+           iter_group = paste0("Ashenfelter dip", iter)) %>%
+    arrange(time)
+  
+  m_ant = feols(data = dat_iter, ant ~ i(treat, est_time, -1) | id + time) %>% tidy(conf.int = T) %>%
+    mutate(time = readr::parse_number(as.character(term))) %>%
+    select(time, term, estimate, p.value, conf.low, conf.high) %>%
+    mutate(group = "Anticipation of treatment",
+           iter_group = paste0("Anticipation of treatment", iter)) %>%
+    arrange(time)
+   
+  ret = rbind(m_para,m_npara,m_div,m_ash,m_ant)
+  
+  return(ret)
+}
+```
+
+## Visualization function
+
+
+```{r, fig.width=10, fig.height=40}
+es_vis = function(n_ind = 30, n_period = 11, event = 6, pre_treat = 5,
+                  post_treat = 5){
+  
+  sim_list = map(1, es_sim, n_ind = n_ind, n_period = n_period,
+                event = event, pre_treat = pre_treat, post_treat = post_treat)
+  
+sim_df <- bind_rows(sim_list)
+
+g0 = ggplot(data = sim_df, aes(x = time, y = estimate)) +
+  geom_point(size = 0.5, alpha = 1) +
+  geom_point(aes(x = -1, y = 0), size = 1, shape = 1) +
+  geom_linerange(aes(ymin = conf.low, ymax = conf.high),
+                 position = position_dodge(width = 0.5), alpha = 0.5, color = grey_mid) +
+  geom_point(aes(y = conf.low, color = factor(zero)), size = 1.5, color = grey_mid, alpha= 0.75, shape = 95) +
+  geom_point(aes(y = conf.high, color = factor(zero)), size = 1.5, color = grey_mid, alpha= 0.75, shape = 95) +
+  geom_hline(yintercept = 1.5, linetype = "dashed", color = "red", alpha = 0.5, size = 0.1) +
+  ylim(min(sim_df$conf.low), max(sim_df$conf.high)) +
+  scale_x_continuous(breaks = seq(-pre_treat, post_treat, 1)) +
+  scale_y_continuous(breaks = seq(-4,6,2)) +
+  geom_hline(yintercept = c(-4,-3,-2,-1,0,1,2,3,4,5,6), size = 0.05, alpha = 0.5) +
+  geom_hline(yintercept = 0, size = 0.1, alpha = 1) +
+  geom_vline(xintercept = -0.5, linetype = "dashed", size = 0.25, color= grey_mid) +
+  theme_A6 +
+  facet_wrap(~group, nrow = 2)
+
+return(g0)
+}
+```
+
+
+## Simulation (iter = 1)
+
+
+```{r}
+es_vis()
+```
+
+## Simulation (iter = 20)
+
+```{r}
+es_vis_iter = function(iter = 1, n_ind = 30, n_period = 11, event = 6, pre_treat = 5,
+                  post_treat = 5){
+  
+  sim_list = map(1:iter, es_sim, n_ind = n_ind, n_period = n_period,
+                event = event, pre_treat = pre_treat, post_treat = post_treat)
+  
+sim_df <- bind_rows(sim_list)
+
+g0 = ggplot(data = sim_df, aes(x = time, y = estimate)) +
+  geom_point(size = 0.25, alpha = 0.5) +
+  geom_point(aes(x = -1, y = 0), size = 1, shape = 1) +
+  geom_linerange(aes(ymin = conf.low, ymax = conf.high),
+                 position = position_dodge(width = 0.5), alpha = 0.15, color = grey_mid) +
+  geom_hline(yintercept = 1.5, linetype = "dashed", color = "red", alpha = 0.5, size = 0.1) +
+  ylim(min(sim_df$conf.low), max(sim_df$conf.high)) +
+  scale_x_continuous(breaks = seq(-pre_treat, post_treat, 1)) +
+  scale_y_continuous(breaks = seq(-4,6,2)) +
+  geom_hline(yintercept = c(-4,-3,-2,-1,0,1,2,3,4,5,6), size = 0.05, alpha = 0.5) +
+  geom_hline(yintercept = 0, size = 0.1, alpha = 1) +
+  geom_vline(xintercept = -0.5, linetype = "dashed", size = 0.25, color= grey_mid) +
+  theme_A6 +
+  facet_wrap(~group, nrow = 2)
+
+return(g0)
+}
+```
+
+```{r}
+es_vis_iter(iter = 20, n_ind = 40)
+```
+

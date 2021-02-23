@@ -3,37 +3,55 @@ p_load(tidyverse, ggplot2, fixest, broom, ggthemes)
 
 
 es_sim = function(iter = 1, n_ind = 10, n_period = 11, event = 6, pre_treat = 5, post_treat = 5) {
-  # event = event
   n_obs = n_period*n_ind
   dat_iter = tibble(
     iter = iter,
     event = event,
     id = rep(1:n_ind, len = n_obs),
     time = rep(1:n_period, each = n_obs / n_period),
-    
-    est_time = ifelse(time < event - pre_treat, -pre_treat,
-                      ifelse(time > event + post_treat, post_treat, time - event)),
-    
+    est_time = case_when(
+          time < event - pre_treat ~ -pre_treat,
+          time > event + post_treat ~ post_treat,
+          TRUE ~ time - event
+        ),
     post = ifelse(time >= event, 1, 0),
     lag1_post = ifelse(time == (event - 1) , 1, 0),
     lag2_post = ifelse(time == (event - 2) , 1, 0),
     treat = rep(0:1, length = n_obs),
-    group = ifelse(treat == 1 & time >= event, 1,
-                   ifelse(treat == 1 & time < event, 2,
-                          ifelse(treat == 0 & time >= event, 3, 4))),
+    group = case_when(
+          treat == 1 & time >= event ~ 1,
+          treat == 1 & time <event ~ 2,
+          treat == 0 & time >= event ~ 3,
+          TRUE ~ 4
+        ),
+    ## Generate outcome variables
+    ## parallel trends
     para = 2 + 2*(treat == 1) + (0.2*time) + 1.5*(treat == 1)*(post == 1) + rnorm(n_obs),
-    div = 2 + 2*(treat == 1) + (0.2*time) + 1.5*(treat == 1)*(post == 1)*(time / event) + rnorm(n_obs),
+    ## not parallel trends
+    npara = para - (0.2*time)*(treat == 0),
+    ## divergent trends following treatment
+    div = 2 + 2*(treat == 1) + (0.2*time) + 1.5*(treat == 1)*(post == 1)*(time / event)^2 + rnorm(n_obs),
+    ## ashenfelter dip - selection into treatment
     ash = para - 1*(treat == 1)*(lag1_post == 1) - .5*(treat == 1)*(lag2_post == 1),
+    ## anticipation of treatment
     ant = para + 1*(treat == 1)*(lag1_post == 1) + 1*(treat == 1)*(lag2_post == 1)
   ) %>% panel(panel.id = ~id + time) %>% 
     arrange(id, time)
   
+  ## Estimate the five models 
   
   m_para = feols(data = dat_iter, para ~ i(treat, est_time, -1) | id + time) %>% tidy(conf.int = T) %>% 
     mutate(time = readr::parse_number(as.character(term))) %>%
     select(time, term, estimate, p.value, conf.low, conf.high) %>% 
     mutate(group = "Parallel trends",
            iter_group = paste0("Parallel trends", iter)) %>% 
+    arrange(time)
+  
+  m_npara = feols(data = dat_iter, npara ~ i(treat, est_time, -1) | id + time) %>% tidy(conf.int = T) %>% 
+    mutate(time = readr::parse_number(as.character(term))) %>%
+    select(time, term, estimate, p.value, conf.low, conf.high) %>% 
+    mutate(group = "Not parallel trends",
+           iter_group = paste0("Not parallel trends", iter)) %>% 
     arrange(time)
   
   m_div = feols(data = dat_iter, div ~ i(treat, est_time, -1) | id + time) %>% tidy(conf.int = T) %>% 
@@ -57,16 +75,16 @@ es_sim = function(iter = 1, n_ind = 10, n_period = 11, event = 6, pre_treat = 5,
            iter_group = paste0("Anticipation of treatment", iter)) %>%
     arrange(time)
    
-  ret = rbind(m_para,m_div,m_ash,m_ant)
+  ret = rbind(m_para,m_npara,m_div,m_ash,m_ant)
   
   return(ret)
 }
 
 n_ind = 40
 n_period = 110
-event = 60
+event = 70
 pre_treat = 5
-post_treat = 2
+post_treat = 10
 
 sim_list <- map(1:20, es_sim, n_ind = n_ind, n_period = n_period,
                 event = event, pre_treat = pre_treat, post_treat = post_treat)
