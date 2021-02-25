@@ -15,8 +15,9 @@ es_sim = function(iter = 1, n_ind = 10, n_period = 11, event = 6, pre_treat = 5,
           TRUE ~ time - event
         ),
     post = ifelse(time >= event, 1, 0),
-    lag1_post = ifelse(time == (event - 1) , 1, 0),
-    lag2_post = ifelse(time == (event - 2) , 1, 0),
+    lag1_post = ifelse(time == (event - 1), 1, 0),
+    lag2_post = ifelse(time == (event - 2), 1, 0),
+    lag3_post = ifelse(time == (event - 3), 1, 0),
     treat = rep(0:1, length = n_obs),
     group = case_when(
           treat == 1 & time >= event ~ 1,
@@ -28,11 +29,11 @@ es_sim = function(iter = 1, n_ind = 10, n_period = 11, event = 6, pre_treat = 5,
     ## parallel trends
     para = 2 + 2*(treat == 1) + (0.2*time) + 1.5*(treat == 1)*(post == 1) + rnorm(n_obs),
     ## not parallel trends
-    npara = para - (0.2*time)*(treat == 0),
+    npara = para - (0.25*time)*(treat == 0),
     ## divergent trends following treatment
-    div = 2 + 2*(treat == 1) + (0.2*time) + 1.5*(treat == 1)*(post == 1)*(time / event)^2 + rnorm(n_obs),
+    div = para - 1.5*(treat == 1)*(post == 1) + 1.5*(treat == 1)*(post == 1)*(time / event)^1.7,
     ## ashenfelter dip - selection into treatment
-    ash = para - 1*(treat == 1)*(lag1_post == 1) - .5*(treat == 1)*(lag2_post == 1),
+    ash = para - 0.75*(treat == 1)*(lag1_post == 1) - .5*(treat == 1)*(lag2_post == 1) - 0.25*(treat == 1)*(lag3_post == 1),
     ## anticipation of treatment
     ant = para + 1*(treat == 1)*(lag1_post == 1) + 1*(treat == 1)*(lag2_post == 1)
   ) %>% panel(panel.id = ~id + time) %>% 
@@ -81,28 +82,29 @@ es_sim = function(iter = 1, n_ind = 10, n_period = 11, event = 6, pre_treat = 5,
 }
 
 n_ind = 40
-n_period = 110
-event = 70
-pre_treat = 5
-post_treat = 10
+n_period = 15
+event = 8
+pre_treat = 7
+post_treat = 5
 
-sim_list <- map(1:20, es_sim, n_ind = n_ind, n_period = n_period,
+sim_list <- map(1:200, es_sim, n_ind = n_ind, n_period = n_period,
                 event = event, pre_treat = pre_treat, post_treat = post_treat)
 sim_df <- bind_rows(sim_list)
 
 ggplot(data = sim_df, aes(x = time, y = estimate)) +
-  geom_point(size = 0.5, alpha = 1) +
+  # geom_point(size = 0.25, alpha = 0.5) +
   geom_point(aes(x = -1, y = 0), size = 1, shape = 1) +
   # geom_line(aes(group = iter_group), alpha = 0.2, size = 0.5, color = "grey50") +
   # geom_line(aes(x = time, y = estimate),alpha = 1) +
-  geom_linerange(aes(ymin = conf.low, ymax = conf.high), position = position_dodge(width = 0.5), alpha = 0.1) +
+  geom_linerange(aes(ymin = conf.low, ymax = conf.high), position = position_dodge(width = 0.5), size = 1.5,
+                 color = "blue", alpha = 0.01) +
   # geom_point(aes(y = conf.low, color = factor(zero)), size = 4, alpha= 0.75, shape = 95) +
   # geom_point(aes(y = conf.high, color = factor(zero)), size = 4, alpha= 0.75, shape = 95) +
   # geom_vline(xintercept = 5.5, linetype = "dashed", size = 0.5) +
   # geom_hline(yintercept = 0, linetype = "dashed", size = 0.5) +
   # scale_colour_manual(values = c("black", "red")) +
   geom_hline(yintercept = 1.5, linetype = "dashed", color = "red", alpha = 0.3) +
-  ylim(min(sim_df$conf.low), max(sim_df$conf.high)) +
+  ylim(-3, 5) +
   scale_x_continuous(breaks = seq(-pre_treat, post_treat, 1)) +
   theme_minimal() +
   facet_wrap(~group)
