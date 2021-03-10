@@ -1,0 +1,43 @@
+---
+title: "Goodman-Bacon Decompostion"
+author: "Andrew Dickinson"
+date: "Winter 2021"
+#date: "<br>`r format(Sys.time(), '%d %B %Y')`"
+header-includes:
+  - \usepackage{mathtools}
+  - \DeclarePairedDelimiter\floor{\lfloor}{\rfloor}
+  - \usepackage{amssymb}
+output: 
+  html_document:
+    toc: false
+    toc_depth: 3  
+    number_sections: false
+    theme: flatly
+    highlight: tango  
+    toc_float:
+      collapsed: true
+      smooth_scroll: true 
+---
+
+```{r Setup, include = F}
+options(htmltools.dir.version = FALSE)
+library(pacman)
+p_load(tidyverse,patchwork,kableExtra,lfe,lmtest,xtable,
+       did,magrittr,ggthemes,bacondecomp,multcomp,fastDummies,
+       ggforce)
+# Define pink color
+red_pink <- "#e64173"
+turquoise <- "#20B2AA"
+orange <- "#FFA500"
+red <- "#fb6107"
+blue <- "#3b3b9a"
+green <- "#38c57f"
+grey_light <- "grey70"
+grey_mid <- "grey50"
+grey_dark <- "grey20"
+purple <- "#6A5ACD"
+slate <- "#314f4f"
+rmd_green <- "#73d7ad"
+rmd_pink <- "#d7739d"
+# Dark slate grey: #314f4f
+```
