@@ -212,7 +212,7 @@ g3 = ggplot(data = data3, aes(x = year, y = y, group = unit)) +
               summarise(mean_y = mean(y)),
             aes(x = year, y = mean_y, group = factor(group), color = factor(group)),
             size = 1.25) +
-  geom_vline(xintercept = c(2000, 2008, 2016), linetype = "dashed", size = 0.25) +
+  geom_vline(xintercept = c(1999.5, 2007.5, 2015.5), linetype = "dashed", size = 0.25) +
   scale_color_manual(values = c(cool_black, azure, blue_grey)) +
   scale_y_continuous(breaks = seq(-4,8,2))
 
@@ -266,7 +266,7 @@ g4 = ggplot(data = data4, aes(x = year, y = y, group = unit)) +
   geom_line(alpha = 0.1, size = 0.25, color = grey_mid) +
   theme_ipsum() +
   labs(title = "Simulation 04",
-       subtitle = expression(paste("Staggered treatment periods + homogenous treatment effect (", tau, " = 3)")),
+       subtitle = expression(paste("Staggered treatment periods + constant treatment effect that change over time (", tau, " = 5, 3, 1)")),
        caption = "Treatment is staggered between 2000, 2008, 2016. All units are treated after 2016.",
        x = "Year",
        y = "Y",
@@ -276,7 +276,7 @@ g4 = ggplot(data = data4, aes(x = year, y = y, group = unit)) +
               summarise(mean_y = mean(y)),
             aes(x = year, y = mean_y, group = factor(group), color = factor(group)),
             size = 1.25) +
-  geom_vline(xintercept = c(2000, 2008, 2016), linetype = "dashed", size = 0.25) +
+  geom_vline(xintercept = c(1999.5, 2007.5, 2015.5), linetype = "dashed", size = 0.25) +
   scale_color_manual(values = c(cool_black, azure, columbia_blue)) +
   scale_y_continuous(breaks = seq(-4,8,2))
 
